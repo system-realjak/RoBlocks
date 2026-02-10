@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoBlocks | Online</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg: #F2F4F5; --nav: #FFFFFF; --text: #191B1D;
+            --border: #DEE1E3; --card: #FFFFFF; --hover: #EBEDEF;
+            --accent: #00A2FF; --rbx-gold: #FFB800; --shadow: rgba(0,0,0,0.05);
+            --status-green: #00E676;
+        }
+        .dark-mode {
+            --bg: #191B1D; --nav: #232527; --text: #FFFFFF;
+            --border: #393B3D; --card: #2B2D2F; --hover: #333639;
+            --shadow: rgba(0,0,0,0.3);
+        }
+
+        body, html { margin: 0; padding: 0; font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); transition: background 0.3s; height: 100%; overflow-x: hidden; }
+
+        /* SERVER STATUS INDICATOR */
+        .server-status { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; color: var(--text); opacity: 0.6; margin-left: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .status-dot { width: 8px; height: 8px; background: var(--status-green); border-radius: 50%; box-shadow: 0 0 8px var(--status-green); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* AUTH SCREEN */
+        #auth-screen { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: 20px 0; }
+        .auth-box { background: var(--nav); padding: 35px; border-radius: 20px; width: 360px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .auth-tabs { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; }
+        .auth-tab { cursor: pointer; font-weight: 700; opacity: 0.4; transition: 0.2s; border-bottom: 2px solid transparent; padding-bottom: 5px; color: var(--text); }
+        .auth-tab.active { opacity: 1; border-color: var(--accent); }
+        
+        .input-group { text-align: left; margin-bottom: 15px; }
+        .input-label { font-size: 11px; font-weight: 800; margin-bottom: 5px; display: block; opacity: 0.7; letter-spacing: 0.5px;}
+        .auth-input, .auth-select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; background: var(--bg); color: var(--text); font-size: 14px; }
+        
+        .gender-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 5px; }
+        .gender-opt { padding: 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; opacity: 0.6; transition: 0.2s; font-size: 13px; background: var(--card);}
+        .gender-opt.selected { opacity: 1; border-color: var(--accent); background: rgba(0, 162, 255, 0.1); }
+
+        .color-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
+        .color-dot { width: 100%; aspect-ratio: 1; border-radius: 4px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .color-dot.selected { border-color: var(--accent); transform: scale(1.1); }
+
+        .btn { background: var(--accent); color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 15px; width: 100%; transition: 0.2s; }
+        .btn:hover { filter: brightness(1.1); }
+        
+        .navbar { height: 60px; background: var(--nav); display: flex; align-items: center; padding: 0 30px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; }
+        .logo-square { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; transform: rotate(-10deg); display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; }
+        .main-content { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
+        .avatar-circle { width: 64px; height: 64px; border-radius: 50%; background: #ccc; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; transition: 0.3s; }
+        
+        #admin-panel { background: rgba(0, 162, 255, 0.05); border: 2px dashed var(--accent); padding: 25px; border-radius: 16px; margin-top: 40px; display: none; }
+        #game-view { display: none; position: fixed; inset: 0; background: #000; z-index: 5000; }
+        #exit-btn { position: absolute; top: 20px; right: 20px; z-index: 6000; padding: 10px 20px; background: #ff4444; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="auth-screen">
+    <div class="auth-box">
+        <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:25px;">
+            <div class="logo-square">R</div> <h1 style="margin:0; font-size: 24px; color:var(--text)">RoBlocks</h1>
+        </div>
+        
+        <div class="auth-tabs">
+            <span id="tab-login" class="auth-tab active" onclick="switchTab('login')">Log In</span>
+            <span id="tab-signup" class="auth-tab" onclick="switchTab('signup')">Sign Up</span>
+        </div>
+
+        <div class="input-group">
+            <span class="input-label">USERNAME</span>
+            <input type="text" id="user-field" class="auth-input" placeholder="RoBlocks Name">
+        </div>
+
+        <div class="input-group">
+            <span class="input-label">PASSWORD</span>
+            <input type="password" id="pass-field" class="auth-input" placeholder="Password">
+        </div>
+
+        <div id="signup-fields" style="display:none;">
+            <div class="input-group">
+                <span class="input-label">GENDER (OPTIONAL)</span>
+                <div class="gender-grid">
+                    <div class="gender-opt" id="gen-boy" onclick="setGender('boy')">👦 Boy</div>
+                    <div class="gender-opt" id="gen-girl" onclick="setGender('girl')">👧 Girl</div>
+                </div>
+            </div>
+
+            <span class="input-label" style="text-align:left; display:block;">SKIN COLOR</span>
+            <div class="color-grid">
+                <div class="color-dot selected" style="background:#f3d2b3" onclick="setColor(this, '#f3d2b3')"></div>
+                <div class="color-dot" style="background:#e0ac69" onclick="setColor(this, '#e0ac69')"></div>
+                <div class="color-dot" style="background:#8d5524" onclick="setColor(this, '#8d5524')"></div>
+                <div class="color-dot" style="background:#ffdbac" onclick="setColor(this, '#ffdbac')"></div>
+                <div class="color-dot" style="background:#333333" onclick="setColor(this, '#333333')"></div>
+            </div>
+        </div>
+        
+        <button id="auth-btn" class="btn" onclick="handleAuth()">Log In</button>
+        <p id="auth-msg" style="font-size: 12px; color: #ff4444; margin-top: 10px;"></p>
+    </div>
+</div>
+
+<nav class="navbar">
+    <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="location.reload()">
+        <div class="logo-square">R</div> <div style="font-weight: 800; font-size: 20px;">RoBlocks</div>
+    </div>
+    
+    <div class="server-status">
+        <div class="status-dot"></div>
+        <span>Online</span>
+        <span style="opacity:0.5; margin-left:5px;">|</span>
+        <span id="server-load" style="margin-left:5px;">Load: 12%</span>
+    </div>
+
+    <div style="flex-grow:1"></div>
+    <button onclick="toggleDarkMode()" id="theme-btn" style="background:none; border:1px solid var(--border); padding:5px 10px; border-radius:6px; color:var(--text); cursor:pointer; margin-right: 15px;">Dark Mode</button>
+    <div style="font-weight:bold; display:flex; align-items:center; gap:5px;">
+        <div style="width:18px; height:18px; background:var(--accent); border-radius:50%;"></div>
+        <span id="rbx-display">0</span>
+    </div>
+</nav>
+
+<div class="main-content">
+    <h1 id="welcome-text">Home</h1>
+    <div class="connections-list">
+        <div class="conn-item">
+            <div class="avatar-circle" id="my-av"></div>
+            <div style="font-size:12px; text-align:center;" id="my-name">Guest</div>
+        </div>
+    </div>
+
+    <div style="background:var(--card); border:1px solid var(--border); border-radius:15px; overflow:hidden; width:280px; cursor:pointer;" onclick="playGame()">
+        <div style="height:150px; background:#333; background-image:url('https://blog.roblox.com/wp-content/uploads/2018/10/Baseplate.png'); background-size:cover;"></div>
+        <div style="padding:15px;">
+            <div style="font-weight:bold;">Baseplate 2026</div>
+            <div style="font-size:12px; opacity:0.6;">Global Server | Join Now</div>
+        </div>
+    </div>
+
+    <div id="admin-panel">
+        <h2 style="margin-top:0; color:var(--accent);">🛡️ ADMIN PANEL</h2>
+        <button class="btn" style="width:auto; padding:10px 20px;" onclick="addRbx()">+10k RoBucks</button>
+        <button class="btn" style="width:auto; padding:10px 20px; background:#ff4444; margin-left:10px;" onclick="resetAllData()">WIPE DATABASE</button>
+    </div>
+</div>
+
+<div id="game-view">
+    <button id="exit-btn" onclick="exitGame()">EXIT GAME</button>
+    <div id="canvas-target" style="width:100%; height:100%;"></div>
+</div>
+
+<script>
+    let mode = 'login';
+    let selectedColor = '#f3d2b3';
+    let selectedGender = '';
+    
+    // PERSISTENCE
+    let usersDB = JSON.parse(localStorage.getItem('rbx_users')) || { "system_realjak": {pass:"jakwati11", color:"#00A2FF", rbx: 999999, isAdmin: true} };
+    let currentUser = null;
+
+    if(localStorage.getItem('rbx_dark') === 'true') document.body.classList.add('dark-mode');
+
+    // SERVER LOAD SIMULATOR
+    setInterval(() => {
+        const load = Math.floor(Math.random() * (18 - 8 + 1)) + 8;
+        document.getElementById('server-load').innerText = `Load: ${load}%`;
+    }, 4000);
+
+    function switchTab(t) {
+        mode = t;
+        document.getElementById('tab-login').className = t === 'login' ? 'auth-tab active' : 'auth-tab';
+        document.getElementById('tab-signup').className = t === 'signup' ? 'auth-tab active' : 'auth-tab';
+        document.getElementById('signup-fields').style.display = t === 'signup' ? 'block' : 'none';
+        document.getElementById('auth-btn').innerText = t === 'login' ? 'Log In' : 'Sign Up';
+    }
+
+    function setGender(g) {
+        selectedGender = g;
+        document.getElementById('gen-boy').className = g === 'boy' ? 'gender-opt selected' : 'gender-opt';
+        document.getElementById('gen-girl').className = g === 'girl' ? 'gender-opt selected' : 'gender-opt';
+    }
+
+    function setColor(el, c) {
+        selectedColor = c;
+        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+        el.classList.add('selected');
+    }
+
+    function handleAuth() {
+        const u = document.getElementById('user-field').value;
+        const p = document.getElementById('pass-field').value;
+        if (!u || !p) return;
+
+        if (mode === 'signup') {
+            if(usersDB[u]) { alert("Username taken!"); return; }
+            usersDB[u] = { pass: p, color: selectedColor, gender: selectedGender, rbx: 0, isAdmin: false };
+            saveDB();
+            alert("Success! Now Log In.");
+            switchTab('login');
+            return;
+        }
+
+        if (usersDB[u] && usersDB[u].pass === p) {
+            currentUser = usersDB[u];
+            currentUser.username = u;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('my-name').innerText = u;
+            document.getElementById('welcome-text').innerText = "Welcome, " + u;
+            document.getElementById('my-av').style.backgroundColor = currentUser.color;
+            document.getElementById('rbx-display').innerText = currentUser.rbx.toLocaleString();
+            if(currentUser.isAdmin) document.getElementById('admin-panel').style.display = 'block';
+        } else {
+            document.getElementById('auth-msg').innerText = "Wrong name or password!";
+        }
+    }
+
+    function addRbx() {
+        currentUser.rbx += 10000;
+        usersDB[currentUser.username].rbx = currentUser.rbx;
+        document.getElementById('rbx-display').innerText = currentUser.rbx.toLocaleString();
+        saveDB();
+    }
+
+    function saveDB() { localStorage.setItem('rbx_users', JSON.stringify(usersDB)); }
+
+    function resetAllData() {
+        if(confirm("Confirm: Wipe all users and data?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    function toggleDarkMode() {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('rbx_dark', document.body.classList.contains('dark-mode'));
+    }
+
+    function playGame() {
+        document.getElementById('game-view').style.display = 'block';
+        const container = document.getElementById('canvas-target');
+        container.innerHTML = "";
+        
+        const scene = new THREE.Scene(); scene.background = new THREE.Color(0x87ceeb);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+        
+        const player = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({color: currentUser.color}));
+        player.position.y = 1; scene.add(player);
+        scene.add(new THREE.GridHelper(100, 100));
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+        camera.position.set(0, 5, 10); camera.lookAt(0, 1, 0);
+        
+        function animate() { 
+            if(document.getElementById('game-view').style.display === 'block') {
+                requestAnimationFrame(animate); 
+                renderer.render(scene, camera); 
+            }
+        }
+        animate();
+    }
+
+    function exitGame() {
+        document.getElementById('game-view').style.display = 'none';
+    }
+</script>
+</body>
+</html>
